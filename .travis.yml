@@ -1,6 +1,6 @@
 --- 
 notifications:
-  email: off
+  email: false
   
 sudo: required
 

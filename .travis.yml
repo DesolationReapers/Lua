@@ -1,6 +1,6 @@
 --- 
 notifications:
-  slack: desolationreapers:vU3Ck22uXcCtHiDi43vXbOYQ
+  email: off
   
 sudo: required
 

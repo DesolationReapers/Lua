@@ -16,7 +16,7 @@ local thermalExpansionEnergyUnit = "cofh_thermalexpansion_energycell"
 
 -- Network varibales
 local wirelessModem = ""
-local MASTERFREQ = -- TODO set before running as client server
+local MASTERFREQ = 0 -- TODO set before running as client server
 local clients = {}
 local clientID = os.getComputerID()
 
@@ -53,7 +53,7 @@ local function registerPowerUnits()
 		if inTable(possibleEUPowerUnits, peripheral.getType(value)) then
 			table.insert(EUPowerUnits, peripheral.wrap(value))
 			if isDebug then print("EU Power Unit Found") end
-		else if peripheral.getType(value) == thermalExpansionEnergyUnit then
+        elseif peripheral.getType(value) == thermalExpansionEnergyUnit then
 			table.insert(RFPowerUnits, peripheral.wrap(value))
 			if isDebug then print("RF Power Unit Found") end
 		else
@@ -142,12 +142,12 @@ local function unitCount(powerType) -- return the count of a specific power type
 	else
 		errorHandler.Error("undefined power type " .. powerType)
 	end
-	if isDebug then print("Counted power units of type " .. powerType)
+	if isDebug then print("Counted power units of type " .. powerType) end
 	return uCount
 end
 
 local function unitCount() -- overloaded to return count of all units
-	return = #EUPowerUnits + #RFPowerUnits
+	return (#EUPowerUnits + #RFPowerUnits)
 end
 ----------------------------- Basic Networking Block
 
@@ -172,7 +172,7 @@ local send = function(currentPower, maximumPower, protocolCurrent, protocolMax) 
 end
 ----------------------------- Server Network Receiving Block
 
-local isMaster = function() if MASTERFREQ == clientID then return true else return false end
+local isMaster = function() if MASTERFREQ == clientID then return true else return false end end
 
 --Master run to keep up with client list and data transmission
 local function masterClientListController()
@@ -184,7 +184,7 @@ local function masterClientListController()
 				rednet.send(cID, "AlreadyJoinedClientList", "ClientAlreadyAccepted")
 			else
 				table.insert(clients, cID)
-				if inTable(clients, cID)
+				if inTable(clients, cID) then
 					rednet.send(cID, "Reqeust Accepted", "ClientJoinRequestAccepted")
 				else
 					rednet.send(cID, "Client failed to join list for unknown reason", "Error")

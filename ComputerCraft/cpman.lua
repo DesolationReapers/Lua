@@ -9,6 +9,7 @@ local programName = "cpman"
 local isDebug = false --Toggle Debug mode
 
 -- Power Unit Tables
+local powerTypes = {"eu", "rf"}
 local EUPowerUnits = {}
 local RFPowerUnits = {}
 local possibleEUPowerUnits = { "batbox", "cesu", "mfe", "mfsu" ,"gt_aesu", "gt_idsu"}
@@ -86,18 +87,18 @@ local getRFEnergyStored = function(rfUnit) return rfUnit.getEnergyStored("front"
 
 local function calculateMaxPower(powerType)
 	powerType = string.lower(powerType)
-	if not powerType == "eu" and not powerType == "rf" then
+	if not inTable(powerTypes, powerType) then
 		errorHandler.Error("you have a incompatable power type being requested", powerType)
 	end
 
-	if powerType == "eu" then
+	if powerType == powerTypes[0] then
 		local maxEU = 0
 		for key, value in pairs(EUPowerUnits) do
 			maxEU = maxEU + (getEUPowerCapacity(value) or 0)
 		end
 		if isDebug then print("Calculated Max EU : " .. maxEU) end
 		return maxEU
-	elseif powerType == "rf" then
+	elseif powerType == powerTypes[1] then
 		local maxRF = 0
 		for key, value in pairs(RFPowerUnits) do
 			maxRF = maxRF + (getRFEnergyCapacity(value) or 0)
@@ -109,18 +110,18 @@ end
 
 local function calculateStoredPower(powerType)
 	powerType = string.lower(powerType)
-	if not powerType == "eu" and not powerType == "rf" then
+	if not inTable(powerTypes, powerType) then
 		errorHandler.Error("you have a incompatable power type being requested", powerType)
 	end
 
-	if powerType == "eu" then
+	if powerType == powerTypes[0] then
 		local storedEU = 0
 		for key, value in pairs(EUPowerUnits) do
 			storedEU = storedEU + (getEUPowerStored(value) or 0)
 		end
 		if isDebug then print("Calculated current stored EU : " .. storedEU) end
 		return storedEU
-	elseif powerType == "rf" then
+	elseif powerType == powerTypes[1] then
 		local storedRF = 0
 		for key, value in pairs(RFPowerUnits) do
 			storedRF = storedRF + (getRFEnergyStored(value) or 0)
@@ -135,9 +136,9 @@ end
 local function unitCount(powerType) -- return the count of a specific power type
 	local uCount = 0
 	powerType = string.lower(powerType)
-	if powerType == "eu" then
+	if powerType == powerTypes[0] then
 		uCount = #EUPowerUnits
-	elseif powerType == "rf" then
+	elseif powerType == powerTypes[1] then
 		uCount = #RFPowerUnits
 	else
 		errorHandler.Error("undefined power type " .. powerType)
@@ -205,7 +206,8 @@ local serverTotalStoredRF = 0
 local serverTotalMaxRF = 0
 
 local function serverMasterPowerCalculation()
-	local clientListOfPowerReceived = {}
+	local clientListOfEUPowerReceived = {}
+	local clientListOfRFPowerReceived = {}
 	local cID, cMsg, cProtocol = rednet.receive("ClientPowerStatus") -- For each client send the power data
 	local clientPowerStored = 0
 	local clientPowerMaxCapacity = 0
@@ -221,10 +223,13 @@ local function serverMasterPowerCalculation()
 		if clientPowerType:lower() == "eu" then
 			serverTotalStoredEU = serverTotalStoredEU + clientPowerStored
 			serverTotalMaxEU = serverTotalMaxEU + clientPowerMaxCapacity
+            rednet.send(cID, "EUpowerStatisRecieved", "powerStatis")
+            table.insert(clientListOfEUPowerReceived, cID)
 		elseif clientPowerType:lower() == "rf" then
 			serverTotalStoredRF = serverTotalStoredRF + clientPowerStored
 			serverTotalMaxRF = serverTotalMaxRF + clientPowerMaxCapacity
-			--send (rfCurrentlyStored, maxRFPower, "storedRFPowerProtocol", "maxRFPowerProtocol")
+            rednet.send(cID, "RFpowerStatisRecieved", "powerStatis")
+            table.insert(clientListOfRFPowerReceived, cID)
 		end
 
 		if not isDebug then
@@ -257,12 +262,46 @@ local function clientJoinRequest()
 	return cjrAccepted
 end
 
+local function clientSendPowerInfo(powerType, powerInfo)
+    local EUpowerInfoConformation = false
+    local EUpowerInfo = {}
+
+    local RFpowerInfoConformation = false
+    local RFpowerInfo = {}
+
+    if unitCount(powerTypes[0]) > 0 then
+        while not EUpowerInfoConformation do
+            EUpowerInfo["cPowerMaxCapacity"] = calculateMaxPower("eu")
+            EUpowerInfo["cPowerStored"] = calculateStoredPower("eu")
+            EUpowerInfo["cPowerType"] = powerTypes[0]
+
+            rednet.send(MASTERFREQ, EUpowerInfo, "ClientPowerStatus")
+            local cID, cMsg, cProtocol = rednet.receive("PowerStatus")
+            if cMsg == "EUpowerStatisRecieved" then EUpowerInfoConformation = true end
+        end
+    end
+
+    if unitCount(powerTypes[1]) > 0 then
+        while not RFpowerInfoConformation do
+            RFpowerInfo["cPowerMaxCapacity"] = calculateMaxPower("rf")
+            RFpowerInfo["cPowerStored"] = calculateStoredPower("rf")
+            RFpowerInfo["cPowerType"] = powerTypes[1]
+
+            rednet.send(MASTERFREQ, RFpowerInfo, "PowerStatus")
+            local cID, cMsg, cProtocol = rednet.receive("PowerStatus")
+            if cMsg == "RFpowerStatisRecieved" then RFpowerInfoConformation = true end
+        end
+    end
+
+    if isDebug then
+        print("Client Power Sent and recieved server side")
+    end
+end
+
 local function clientMain()
 	assert(not isMaster)
 	registerPowerUnits()
 	-- Get initial max power
-	calculateMaxPower("eu")
-	calculateMaxPower("rf")
 
 	while not clientJoinRequest() do --Force a addition for now till I decide to handle the error
 	end

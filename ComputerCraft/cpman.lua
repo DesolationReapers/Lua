@@ -160,7 +160,10 @@ local function loadWifi()
 	if isDebug then print("wifi running") end
 end
 
-local broadcast = function(broadcastMessage, broadcastProtocol) rednet.broadcast(broadcastMessage, broadcastProtocol) end
+local broadcast = function(broadcastMessage, broadcastProtocol)
+    rednet.broadcast(broadcastMessage, broadcastProtocol)
+end
+
 local send = function(currentPower, maximumPower, protocolCurrent, protocolMax) -- broadcasts over rednet the current and max power
 	broadcast(currentPower, protocolCurrent)
 	broadcast(maximumPower, protocolMax)
@@ -171,7 +174,6 @@ local send = function(currentPower, maximumPower, protocolCurrent, protocolMax) 
 	end
 end
 ----------------------------- Server Network Receiving Block
-
 local isMaster = function() if MASTERFREQ == clientID then return true else return false end end
 
 --Master run to keep up with client list and data transmission
@@ -195,18 +197,6 @@ local function masterClientListController()
 	end
 end
 
-local function clientJoinRequest()
-	if not isMaster then
-		local cjrAccepted = false -- client join request accepted | used as a exit for the while
-		while not cjrAccecpted do
-			rednet.send(MASTERFREQ, "requestToJoinClientList", "ClientJoinRequest")
-			sID, sMsg, sProtocol = rednet.receive()
-			if sProtocol == "ClientJoinRequestAccepted" then cjrAccepted = true
-			elseif sProtocol == "ClientAlreadyAccepted" then cjrAccepted = true end
-		end
-	end
-	return cjrAccepted
-end
 
 -- Global Variables for server total calculations
 local serverTotalStoredEU = 0
@@ -253,6 +243,20 @@ local function serverMasterPowerCalculation()
 	end
 end
 
+---------------------------- Client Network Block
+local function clientJoinRequest()
+	if not isMaster then
+		local cjrAccepted = false -- client join request accepted | used as a exit for the while
+		while not cjrAccecpted do
+			rednet.send(MASTERFREQ, "requestToJoinClientList", "ClientJoinRequest")
+			sID, sMsg, sProtocol = rednet.receive()
+			if sProtocol == "ClientJoinRequestAccepted" then cjrAccepted = true
+			elseif sProtocol == "ClientAlreadyAccepted" then cjrAccepted = true end
+		end
+	end
+	return cjrAccepted
+end
+
 local function clientMain()
 	assert(not isMaster)
 	registerPowerUnits()
@@ -271,7 +275,6 @@ local function clientMain()
 			calculateStoredPower("rf")
 		end
 	end
-
 end
 
 local function peripheralEventHandler()
@@ -307,7 +310,7 @@ local function peripheralEventHandler()
 end
 
 if isMaster then -- Main check for what to run to obtain and handle cpman
-	errorHandler.Error(parallel.waitForAny(masterClientListController))
+	errorHandler.Error(parallel.waitForAny(masterClientListController,peripheralEventHandler))
 else
 	errorHandler.Error(parallel.waitForAny(clientMain,peripheralEventHandler))
 end

@@ -16,15 +16,19 @@ notification of modification.
 local version = "0.400"
 local paste = "3iusw9Lt" -- update PASTEBIN
 local programName = "cpman"
-local isDebug = false --Toggle Debug mode
+local isDebug = true --Toggle Debug mode
 
 -- Power Unit Tables
 local powerTypes = {"eu", "rf"}
 local EUPowerUnits = {}
 local RFPowerUnits = {}
 local possibleEUPowerUnits = { "batbox", "cesu", "mfe", "mfsu" ,"gt_aesu", "gt_idsu"}
-local thermalExpansionEnergyUnit = "cofh_thermalexpansion_energycell"
+local possibleRFPowerUnits = {"tile_thermalexpansion_cell", "capcitor_bank"}
+-- Updated the rf power units (not tested) and added enderio support (not tested)
+-- Below are other possible RF power units but have not been tested
+-- BigReactors%-Reactor  BigReactors%-Turbine tile_blockcapcitorbank_name  powered_tile
 
+--local thermalExpansionEnergyUnit = "cofh_thermalexpansion_energycell"
 local serverEUClientCount = 0
 local serverRFClientCount = 0
 
@@ -48,12 +52,12 @@ end
 local isAdvanced = function() return term.isColor() end
 ------------------------------- Update Program Block
 -- This whole block ensures we have the dynamic updater which was written by
--- Soulflare3 (Soulflare3, and Drive137(Spector))
+-- Soulflare3 (Soulflare3) and Drive137 (Spector)
 if not fs.exists("updater") then
     shell.run("pastebin get TgWeeM59 updater")
 end
 
-os.loadAPI("updater")
+os.loadAPI("updater") -- dynamic os program load to ensure things are up to date
 
 if not fs.exists("errorHandler") then
     updater.forceUpdate("1Ge3dgDP","errorHandler")
@@ -75,7 +79,7 @@ local function registerPowerUnits()
         if inTable(possibleEUPowerUnits, peripheral.getType(value)) then
             table.insert(EUPowerUnits, peripheral.wrap(value))
             if isDebug then print("EU Power Unit Found") end
-        elseif peripheral.getType(value) == thermalExpansionEnergyUnit then
+        elseif peripheral.getType(value) == possibleRFPowerUnits then
             table.insert(RFPowerUnits, peripheral.wrap(value))
             if isDebug then print("RF Power Unit Found") end
         else
@@ -397,7 +401,7 @@ local function peripheralEventHandler()
                 if inTable(possibleEUPowerUnits, peripheral.getType(side)) then
                     table.insert(EUPowerUnits, peripheral.wrap(side))
                     calculateMaxPower("eu") -- force recalc of Max Power
-                elseif peripheral.getType(side) == thermalExpansionEnergyUnit then
+                elseif peripheral.getType(side) == possibleRFPowerUnits then
                     table.insert(RFPowerUnits, peripheral.wrap(side))
                     calculateMaxPower("rf")
                 elseif peripheral.getType(side) == "moniter" then
